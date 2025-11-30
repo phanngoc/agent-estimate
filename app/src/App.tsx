@@ -2,6 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MermaidPreview } from "@/components/MermaidPreview"
 import { useStore } from "@/store/useStore"
 import { invoke } from "@tauri-apps/api/core"
@@ -15,7 +16,7 @@ function App() {
     generatedTasks, setGeneratedTasks,
     generatedArchitecture, setGeneratedArchitecture,
     projects, currentProjectId, openaiKey,
-    loadAllData, saveOpenAIKey, createProject, selectProject, deleteProject
+    loadAllData, saveOpenAIKey, createProject, selectProject, deleteProject, updateProjectName
   } = useStore()
   
   const [copied, setCopied] = useState<string | null>(null)
@@ -24,6 +25,8 @@ function App() {
   const [isEditingKey, setIsEditingKey] = useState(false)
   const [tempKeyValue, setTempKeyValue] = useState<string>('')
   const [loadingButton, setLoadingButton] = useState<'tasks' | 'architecture' | null>(null)
+  const [editingProjectId, setEditingProjectId] = useState<number | null>(null)
+  const [editingProjectName, setEditingProjectName] = useState<string>('')
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -116,6 +119,30 @@ function App() {
     }
   }
 
+  const handleEditProjectName = (projectId: number) => {
+    const project = projects.find(p => p.id === projectId)
+    if (project) {
+      setEditingProjectId(projectId)
+      setEditingProjectName(project.name)
+    }
+  }
+
+  const handleSaveProjectName = async () => {
+    if (!editingProjectId || !editingProjectName.trim()) return
+    try {
+      await updateProjectName(editingProjectId, editingProjectName.trim())
+      setEditingProjectId(null)
+      setEditingProjectName('')
+    } catch (e) {
+      alert('Error updating project name: ' + (e as Error).message)
+    }
+  }
+
+  const handleCancelEditProjectName = () => {
+    setEditingProjectId(null)
+    setEditingProjectName('')
+  }
+
   const handleGenerateTasks = async () => {
     if (!openaiKey || !requirements) return
     setLoadingButton('tasks')
@@ -156,31 +183,89 @@ function App() {
     return match ? match[1].trim() : text
   }
 
+  const currentProject = projects.find(p => p.id === currentProjectId)
+
   return (
     <div className="h-screen flex flex-col bg-background p-4 overflow-hidden">
       <div className="flex-shrink-0 space-y-4">
-        <div className="bg-card rounded-xl shadow-lg border overflow-hidden">
-          <div className="h-2 bg-primary w-full"></div>
-          <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
-              <h1 className="text-2xl font-bold text-primary">Estimation App</h1>
-              
-              <div className="flex items-center gap-2">
-            <select
-              value={currentProjectId || ''}
-              onChange={(e) => {
-                const id = e.target.value ? parseInt(e.target.value) : null
-                if (id) handleSelectProject(id)
-              }}
-              className="px-3 py-2 border rounded-md bg-background"
-            >
-              <option value="">-- Chọn Project --</option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
+        <div className="flex items-center justify-between pb-4">
+          <h1 className="text-2xl font-bold text-primary">Estimation App</h1>
+          
+          <div className="flex items-center gap-2">
+            {currentProjectId && currentProject ? (
+              editingProjectId === currentProjectId ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    placeholder="Tên project..."
+                    value={editingProjectName}
+                    onChange={(e) => setEditingProjectName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveProjectName()
+                      if (e.key === 'Escape') handleCancelEditProjectName()
+                    }}
+                    className="w-48"
+                    autoFocus
+                  />
+                  <Button size="sm" onClick={handleSaveProjectName}>
+                    Save
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCancelEditProjectName}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleEditProjectName(currentProjectId)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Select
+                    value={currentProjectId?.toString() || ''}
+                    onValueChange={(value) => {
+                      const id = value ? parseInt(value) : null
+                      if (id) handleSelectProject(id)
+                    }}
+                  >
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Chọn project" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id.toString()}>
+                          {project.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )
+            ) : (
+              <Select
+                value={currentProjectId?.toString() || ''}
+                onValueChange={(value) => {
+                  const id = value ? parseInt(value) : null
+                  if (id) handleSelectProject(id)
+                }}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="-- Chọn Project --" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id.toString()}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             
             {showNewProjectInput ? (
               <div className="flex items-center gap-2">
@@ -232,8 +317,6 @@ function App() {
                 <Trash2 className="h-4 w-4" />
               </Button>
             )}
-          </div>
-            </div>
           </div>
         </div>
         

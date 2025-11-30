@@ -41,6 +41,7 @@ interface AppState {
   selectProject: (id: number) => Promise<void>
   saveProjectData: () => Promise<void>
   deleteProject: (id: number) => Promise<void>
+  updateProjectName: (id: number, name: string) => Promise<void>
 }
 
 const DEFAULT_PROMPT = `# Important Notes
@@ -228,6 +229,16 @@ export const useStore = create<AppState>()((set, get) => ({
       await state.loadAllData() // Reload projects list
     } catch (error) {
       console.error('Failed to delete project:', error)
+      throw error
+    }
+  },
+  
+  updateProjectName: async (id: number, name: string) => {
+    try {
+      await invoke('update_project_name', { projectId: id, name })
+      await get().loadAllData() // Reload projects list
+    } catch (error) {
+      console.error('Failed to update project name:', error)
       throw error
     }
   },

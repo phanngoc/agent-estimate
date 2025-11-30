@@ -194,6 +194,16 @@ fn delete_project(state: tauri::State<AppState>, project_id: i32) -> Result<(), 
 }
 
 #[tauri::command]
+fn update_project_name(state: tauri::State<AppState>, project_id: i32, name: String) -> Result<(), String> {
+    let db_state = state.db.lock().map_err(|e| format!("Lock error: {}", e))?;
+    if let Some(ref db) = *db_state {
+        db.update_project_name(project_id, name).map_err(|e| format!("Database error: {}", e))
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
 fn get_current_project_id(state: tauri::State<AppState>) -> Result<Option<i32>, String> {
     let db_state = state.db.lock().map_err(|e| format!("Lock error: {}", e))?;
     if let Some(ref db) = *db_state {
@@ -387,6 +397,7 @@ pub fn run() {
             get_project_data,
             save_project_data,
             delete_project,
+            update_project_name,
             get_current_project_id,
             set_current_project_id,
             load_all_data,
