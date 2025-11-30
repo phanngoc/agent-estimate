@@ -1,4 +1,4 @@
-# Tauri + React + TypeScript
+# Agentic Estimation App
 
 Ứng dụng desktop để tạo estimation tasks và architecture diagram từ requirements sử dụng OpenAI API.
 

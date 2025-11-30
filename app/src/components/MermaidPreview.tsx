@@ -12,11 +12,13 @@ export function MermaidPreview({ code }: MermaidPreviewProps) {
   const [svgId] = useState(() => `mermaid-${Math.random().toString(36).substr(2, 9)}`)
 
   useEffect(() => {
-    // Khởi tạo Mermaid một lần
+    // Khởi tạo Mermaid một lần với config cho Tauri
     mermaid.initialize({
       startOnLoad: false,
       theme: "default",
       securityLevel: "loose",
+      fontFamily: "system-ui, -apple-system, sans-serif",
+      suppressErrorRendering: false,
     })
   }, [])
 
@@ -40,6 +42,49 @@ export function MermaidPreview({ code }: MermaidPreviewProps) {
         
         if (containerRef.current) {
           containerRef.current.innerHTML = svg
+          
+          // Force SVG dimensions và visibility
+          const svgElement = containerRef.current.querySelector('svg')
+          if (svgElement) {
+            // Check và fix viewBox nếu null
+            let viewBoxAttr = svgElement.getAttribute('viewBox')
+            
+            if (!viewBoxAttr || viewBoxAttr === 'null') {
+              try {
+                // Try to get bounding box of SVG content
+                const bbox = svgElement.getBBox()
+                if (bbox && bbox.width > 0 && bbox.height > 0) {
+                  const padding = 20
+                  const viewBox = `${bbox.x - padding} ${bbox.y - padding} ${bbox.width + padding * 2} ${bbox.height + padding * 2}`
+                  svgElement.setAttribute('viewBox', viewBox)
+                  console.log('Set viewBox from bbox:', viewBox)
+                } else {
+                  // Fallback viewBox
+                  svgElement.setAttribute('viewBox', '0 0 1200 800')
+                  console.log('Set fallback viewBox: 0 0 1200 800')
+                }
+              } catch (e) {
+                // If getBBox fails, use fallback
+                svgElement.setAttribute('viewBox', '0 0 1200 800')
+                console.log('getBBox failed, set fallback viewBox:', e)
+              }
+            }
+            
+            svgElement.style.width = '100%'
+            svgElement.style.minHeight = '300px'
+            svgElement.style.height = 'auto'
+            svgElement.style.display = 'block'
+            svgElement.style.visibility = 'visible'
+            
+            // Force reflow
+            const rect = svgElement.getBoundingClientRect()
+            
+            console.log('Mermaid SVG rendered:', {
+              width: svgElement.style.width,
+              height: rect.height,
+              viewBox: svgElement.getAttribute('viewBox')
+            })
+          }
         }
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to render Mermaid diagram"
@@ -84,7 +129,9 @@ export function MermaidPreview({ code }: MermaidPreviewProps) {
   return (
     <div 
       ref={containerRef} 
-      className="min-h-[350px] flex items-center justify-center overflow-auto"
+      className="mermaid-container min-h-[350px] w-full overflow-auto"
+      suppressHydrationWarning
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
     />
   )
 }

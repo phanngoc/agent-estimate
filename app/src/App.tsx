@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { MermaidPreview } from "@/components/MermaidPreview"
 import { useStore } from "@/store/useStore"
 import { invoke } from "@tauri-apps/api/core"
-import { Loader2, Copy, Check, Plus, Trash2 } from "lucide-react"
+import { Loader2, Copy, Check, Plus, Trash2, Edit } from "lucide-react"
 import { useState, useEffect } from "react"
 
 function App() {
@@ -14,7 +14,6 @@ function App() {
     requirements, setRequirements,
     generatedTasks, setGeneratedTasks,
     generatedArchitecture, setGeneratedArchitecture,
-    isLoading, setIsLoading,
     projects, currentProjectId, openaiKey,
     loadAllData, saveOpenAIKey, createProject, selectProject, deleteProject
   } = useStore()
@@ -22,6 +21,9 @@ function App() {
   const [copied, setCopied] = useState<string | null>(null)
   const [newProjectName, setNewProjectName] = useState<string>('')
   const [showNewProjectInput, setShowNewProjectInput] = useState(false)
+  const [isEditingKey, setIsEditingKey] = useState(false)
+  const [tempKeyValue, setTempKeyValue] = useState<string>('')
+  const [loadingButton, setLoadingButton] = useState<'tasks' | 'architecture' | null>(null)
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -62,10 +64,27 @@ function App() {
     if (key) {
       try {
         await saveOpenAIKey(key)
+        setIsEditingKey(false)
       } catch (e) {
         console.error('Error setting API key:', e)
       }
     }
+  }
+
+  const handleEditKey = () => {
+    setTempKeyValue(openaiKey)
+    setIsEditingKey(true)
+  }
+
+  const handleSaveKey = async () => {
+    if (tempKeyValue) {
+      await handleApiKeyChange(tempKeyValue)
+    }
+  }
+
+  const handleCancelEditKey = () => {
+    setTempKeyValue('')
+    setIsEditingKey(false)
   }
 
   const handleCreateProject = async () => {
@@ -99,7 +118,7 @@ function App() {
 
   const handleGenerateTasks = async () => {
     if (!openaiKey || !requirements) return
-    setIsLoading(true)
+    setLoadingButton('tasks')
     try {
       const result = await invoke<string>('generate_tasks', {
         promptTemplate,
@@ -109,12 +128,12 @@ function App() {
     } catch (e) {
       alert('Error: ' + (e as Error).message)
     }
-    setIsLoading(false)
+    setLoadingButton(null)
   }
 
   const handleGenerateArchitecture = async () => {
     if (!openaiKey || !requirements) return
-    setIsLoading(true)
+    setLoadingButton('architecture')
     try {
       const result = await invoke<string>('generate_architecture', {
         requirements
@@ -123,7 +142,7 @@ function App() {
     } catch (e) {
       alert('Error: ' + (e as Error).message)
     }
-    setIsLoading(false)
+    setLoadingButton(null)
   }
 
   const copyToClipboard = (text: string, id: string) => {
@@ -138,12 +157,15 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Estimation App</h1>
-          
-          <div className="flex items-center gap-2">
+    <div className="h-screen flex flex-col bg-background p-4 overflow-hidden">
+      <div className="flex-shrink-0 space-y-4">
+        <div className="bg-card rounded-xl shadow-lg border overflow-hidden">
+          <div className="h-2 bg-primary w-full"></div>
+          <div className="p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <h1 className="text-2xl font-bold text-primary">Estimation App</h1>
+              
+              <div className="flex items-center gap-2">
             <select
               value={currentProjectId || ''}
               onChange={(e) => {
@@ -211,60 +233,96 @@ function App() {
               </Button>
             )}
           </div>
+            </div>
+          </div>
         </div>
         
         <div className="space-y-2">
           <label className="text-sm font-medium">OpenAI API Key</label>
-          <Input
-            type="password"
-            placeholder="sk-..."
-            value={openaiKey}
-            onChange={(e) => handleApiKeyChange(e.target.value)}
-          />
+          {openaiKey && !isEditingKey ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Key đã được lưu</span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleEditKey}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Input
+                type="password"
+                placeholder="sk-..."
+                value={tempKeyValue}
+                onChange={(e) => setTempKeyValue(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                size="sm"
+                onClick={handleSaveKey}
+                disabled={!tempKeyValue}
+              >
+                Save
+              </Button>
+              {isEditingKey && openaiKey && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCancelEditKey}
+                >
+                  Cancel
+                </Button>
+              )}
+            </div>
+          )}
         </div>
+      </div>
 
-        <Tabs defaultValue="requirements" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="requirements" className="w-full flex flex-col flex-1 min-h-0">
+          <TabsList className="grid w-full grid-cols-4 flex-shrink-0">
             <TabsTrigger value="requirements">Requirements</TabsTrigger>
             <TabsTrigger value="template">Prompt Template</TabsTrigger>
             <TabsTrigger value="tasks">Tasks & Estimates</TabsTrigger>
             <TabsTrigger value="architecture">Architecture</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="requirements" className="space-y-4">
+          <TabsContent value="requirements" className="flex flex-col flex-1 min-h-0 space-y-4 mt-4">
             <Textarea
               placeholder="Nhập requirements của dự án..."
-              className="min-h-[400px] font-mono text-sm"
+              className="flex-1 font-mono text-sm"
               value={requirements}
               onChange={(e) => setRequirements(e.target.value)}
             />
-            <div className="flex gap-2">
-              <Button onClick={handleGenerateTasks} disabled={isLoading || !openaiKey || !requirements}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <div className="flex gap-2 flex-shrink-0">
+              <Button onClick={handleGenerateTasks} disabled={loadingButton !== null || !openaiKey || !requirements}>
+                {loadingButton === 'tasks' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Generate Tasks
               </Button>
-              <Button variant="outline" onClick={handleGenerateArchitecture} disabled={isLoading || !openaiKey || !requirements}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button variant="secondary" onClick={handleGenerateArchitecture} disabled={loadingButton !== null || !openaiKey || !requirements}>
+                {loadingButton === 'architecture' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Generate Architecture
               </Button>
             </div>
           </TabsContent>
 
-          <TabsContent value="template" className="space-y-4">
+          <TabsContent value="template" className="flex flex-col flex-1 min-h-0 mt-4">
             <Textarea
               placeholder="Prompt template..."
-              className="min-h-[400px] font-mono text-sm"
+              className="flex-1 font-mono text-sm"
               value={promptTemplate}
               onChange={(e) => setPromptTemplate(e.target.value)}
             />
           </TabsContent>
 
-          <TabsContent value="tasks" className="space-y-4">
-            <div className="relative">
+          <TabsContent value="tasks" className="flex flex-col flex-1 min-h-0 mt-4">
+            <div className="relative flex-1">
               <Textarea
                 readOnly
                 placeholder="Generated tasks will appear here..."
-                className="min-h-[400px] font-mono text-sm"
+                className="h-full font-mono text-sm"
                 value={generatedTasks}
               />
               {generatedTasks && (
@@ -280,14 +338,14 @@ function App() {
             </div>
           </TabsContent>
 
-          <TabsContent value="architecture" className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="relative">
-                <label className="text-sm font-medium mb-2 block">Mermaid Code</label>
+          <TabsContent value="architecture" className="flex flex-col flex-1 min-h-0 mt-4">
+            <div className="grid grid-cols-2 gap-4 h-full">
+              <div className="relative flex flex-col">
+                <label className="text-sm font-medium mb-2 block flex-shrink-0">Mermaid Code</label>
                 <Textarea
                   readOnly
                   placeholder="Generated mermaid code will appear here..."
-                  className="min-h-[350px] font-mono text-sm"
+                  className="flex-1 font-mono text-sm"
                   value={generatedArchitecture}
                 />
                 {generatedArchitecture && (
@@ -301,16 +359,15 @@ function App() {
                   </Button>
                 )}
               </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Preview</label>
-                <div className="border rounded-md p-4 min-h-[350px] bg-white overflow-auto">
+              <div className="flex flex-col">
+                <label className="text-sm font-medium mb-2 block flex-shrink-0">Preview</label>
+                <div className="border rounded-md p-4 flex-1 bg-white overflow-auto">
                   <MermaidPreview code={extractMermaidCode(generatedArchitecture)} />
                 </div>
               </div>
             </div>
           </TabsContent>
         </Tabs>
-      </div>
     </div>
   )
 }
