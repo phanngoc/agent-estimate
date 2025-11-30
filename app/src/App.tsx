@@ -426,10 +426,10 @@ function App() {
               <div className="relative flex flex-col">
                 <label className="text-sm font-medium mb-2 block flex-shrink-0">Mermaid Code</label>
                 <Textarea
-                  readOnly
                   placeholder="Generated mermaid code will appear here..."
-                  className="flex-1 font-mono text-sm"
+                  className="flex-1 font-mono text-sm overflow-auto"
                   value={generatedArchitecture}
+                  onChange={(e) => setGeneratedArchitecture(e.target.value)}
                 />
                 {generatedArchitecture && (
                   <Button
@@ -442,9 +442,9 @@ function App() {
                   </Button>
                 )}
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col h-full">
                 <label className="text-sm font-medium mb-2 block flex-shrink-0">Preview</label>
-                <div className="border rounded-md p-4 flex-1 bg-white overflow-auto">
+                <div className="border rounded-md p-4 flex-1 bg-white overflow-auto h-full min-h-0">
                   <MermaidPreview code={extractMermaidCode(generatedArchitecture)} />
                 </div>
               </div>
